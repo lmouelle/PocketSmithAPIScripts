@@ -1,49 +1,51 @@
 #!/usr/bin/python
 
+"""
+Usage: python __FILE__ pocketsmith.csv monarch.csv ACTION
+ACTION: list [Date | Account | ...] | nil
+"""
+
 import csv
 from sys import argv,stdout
 import datetime
+from collections import UserDict
 
 pocketsmith_transactions = []
 monarch_transactions = []
-fieldnames = ['Date', 'Merchant', 'Category', 'Account', 'Original Statement', 'Notes', 'Amount', 'Tags']
+fieldnames = ['Date', 'Description', 'Original Description', 'Amount', 'Transaction Type', 'Category', 'Account Name', 'Labels', 'Notes']
+
+def is_dup(new, old):
+    # If new is dup, return true
+    in_window =  datetime.timedelta(days = -7) <= new['Date'] - old['Date'] <= datetime.timedelta(days = 7)
+    amount_eqish = abs(new['Amount'] - old['Amount']) < 0.01
+    desc_match = set(new['Description'].upper().split()) & set(old['Description'].upper().split())
+
+    return in_window and amount_eqish and desc_match
 
 with open(argv[1], mode='r', newline='') as pocketsmith_infile:
     d_reader = csv.DictReader(pocketsmith_infile)
     for row in d_reader:
         transaction = { 'Date': datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
-                        'Merchant': row['Merchant'],
-                        'Category': row['Category'],
-                        'Account': row['Account'],
-                        'Original Statement': row['Memo'],
-                        'Notes': row['Note'],
+                        'Description': row['Merchant'],
+                        'Original Description': row['Memo'],
                         'Amount': float(row['Amount']),
-                        'Tags': 'Pocketsmith Import' }
+                        'Transaction Type': row['Transaction Type'],
+                        'Category': row['Category'],
+                        'Account Name': row['Account'],
+                        'Labels': 'Pocketsmith Import',
+                        'Notes': row['Note']}
         pocketsmith_transactions.append(transaction)
 
 with open(argv[2], mode='r', newline='') as monarch_infile:
     d_reader = csv.DictReader(monarch_infile)
     for row in d_reader:
         transaction = { 'Date': datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
-                        'Merchant': row['Merchant'],
-                        'Category': row['Category'],
-                        'Account': row['Account'],
-                        'Notes': row['Notes'],
+                        'Description': row['Merchant'],
+                        'Original Description': row['Original Statement'],
                         'Amount': float(row['Amount']),
-                        'Tags': 'Monarch Duplicate' }
+                        'Category': row['Category'],
+                        'Account Name': row['Account'] }
         monarch_transactions.append(transaction)
-
-def format_transaction(transaction):
-    return f"Date={transaction['Date']}`Merchant={transaction['Merchant']}`Category={transaction['Category']}`Account={transaction['Account']}`Original Statement={transaction['Original Statement']}`Notes={transaction['Notes']}`Amount={transaction['Amount']}`Tags={transaction['Tags']}"
-
-def normalize(transaction, column, name):
-    if name.upper() in transaction[column].upper():
-        transaction[column] = name
-
-# TODO: Update all the pocketsmith categories and merchants to match up with new monarch categories
-
-pocket_min = min(pocketsmith_transactions, key= lambda transaction: transaction['Date'])
-monarch_min = min(monarch_transactions, key= lambda transaction: transaction['Date'])
 
 """
 luouelle@desktop ~/N/A/finance_app> python ~/Code/PocketSmithAPIScripts/remove_dups.py ./pocketsmith-transactions-2024-12-22.csv monarch-money-transactions-2024-12-29.csv | sort -u
@@ -56,30 +58,29 @@ First Tech Member Savings (ATM)
 First Tech Mortgage
 """
 
+
 try:
-    boa_card_writer = csv.DictWriter('boa_credit_card.csv', fieldnames, extrasaction='raise', quoting=csv.QUOTE_ALL)
-    boa_checking_writer = csv.DictWriter('boa_checking.csv', fieldnames, extrasaction='raise', quoting=csv.QUOTE_ALL)
-    first_tech_checking_writer = csv.DictWriter('first_tech_checking.csv', fieldnames, extrasaction='raise', quoting=csv.QUOTE_ALL)
-    first_tech_member_writer = csv.DictWriter('first_tech_member.csv', fieldnames, extrasaction='raise', quoting=csv.QUOTE_ALL)
-    first_tech_savings_writer = csv.DictWriter('first_tech_savings.csv', fieldnames, extrasaction='raise', quoting=csv.QUOTE_ALL)
-    first_tech_mortgage_writer = csv.DictWriter('first_tech_mortgage.csv', fieldnames, extrasaction='raise', quoting=csv.QUOTE_ALL)
+    action = argv[3]
+        
+    if action == 'list':
+        field = argv[4]
+        output = {row[field] for row in monarch_transactions} & {row[field] for row in pocketsmith_transactions}
+        for elem in output:
+            print(elem)
 
-    boa_checking_writer.writeheader()
+    if action == 'dedup':
+        final_list = list(monarch_transactions) # deep copy
+        for transaction in pocketsmith_transactions:
+            if not any(is_dup(transaction, t) for t in final_list):
+                final_list.append(transaction)
+                print(transaction)
 
-    for transaction in pocketsmith_transactions:
-        if pocket_min['Date'] < transaction['Date'] < monarch_min['Date']:
+    if action == 'getdup':
+        final_list = list(monarch_transactions) # deep copy
+        for transaction in pocketsmith_transactions:
+            if any(is_dup(transaction, t) for t in final_list):
+                print(transaction)
+            final_list.append(transaction)
 
-            # Output to monarch time format
-            transaction['Date'] = transaction['Date'].strftime('%Y-%m-%d')
-            # Weak dedup attempt
-            normalize(transaction,'Merchant', 'Uber')
-            normalize(transaction,'Merchant', 'OkCupid')
-            normalize(transaction,'Merchant', 'Venmo')
-            normalize(transaction,'Merchant', 'UMCP')
-            normalize(transaction,'Merchant', 'TING')
-            normalize(transaction,'Merchant', 'Steam')
-
-            #writer.writerow(transaction)
-            print(transaction['Account'], file=stdout)
 except BrokenPipeError:
     exit(0)
