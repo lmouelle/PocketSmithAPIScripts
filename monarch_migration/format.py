@@ -12,12 +12,12 @@ try:
     writer.writeheader()
     _ = next(reader) # Ignore the header from reader when writingz
     for row in reader:
-        row['Note'] = row['Note'].replace('\n', ' ').replace('\r', ' ')
-
         if row.get('Labels', '') == '':
             row['Labels'] = 'PocketsmithImport'
         else:
             row["Labels"] += ',PocketsmithImport'
+
+        row = {k:(v.replace('\n', ' ').replace('\r', ' ')) for k, v in row.items()}
 
         writer.writerow(row)
 except BrokenPipeError:
