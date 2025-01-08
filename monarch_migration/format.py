@@ -6,7 +6,7 @@ from sys import stdin, stdout
 fieldnames = ["Date","Merchant","Merchant Changed From","Amount","Currency","Transaction Type","Account","Closing Balance","Category","Parent Categories","Labels","Memo","Note","ID","Bank","Account Number"]
 
 reader = csv.DictReader(stdin, fieldnames)
-writer = csv.DictWriter(stdout, fieldnames, delimiter='`', quoting=csv.QUOTE_ALL)
+writer = csv.DictWriter(stdout, fieldnames, delimiter='`')
 
 try:
     writer.writeheader()

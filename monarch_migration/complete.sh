@@ -11,7 +11,7 @@ tmp_name=tmp.txt
 | cut -d\` -f1,2,4,7,9,11,12,13 \
 | awk -F \` -v OFS='`' '{print $1,$2,$5,$4,$7,$8,$3,$6}' \
 | cat - <(/var/home/luouelle/Code/PocketSmithAPIScripts/monarch_migration/backtickize.py < $mon_file) \
-| sort --stable -t\` -k1,1 \
+| sort -t\` -k7,7 -k1,1 \
 
 # 9. Sort by amount, then date, then desc/merchant and eyecheck for dups // after this unsure, python script that understands datetime?
 # N. tr backtick into comma again

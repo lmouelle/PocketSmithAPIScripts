@@ -4,7 +4,7 @@ import csv
 from sys import stdin, stdout
 
 reader = csv.reader(stdin)
-writer = csv.writer(stdout, delimiter='`', quoting=csv.QUOTE_ALL)
+writer = csv.writer(stdout, delimiter='`')
 
 try:
     for row in reader:
