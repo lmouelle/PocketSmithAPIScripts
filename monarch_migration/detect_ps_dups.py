@@ -1,26 +1,13 @@
 #!/usr/bin/python
 
-"""
-Usage: python __FILE__ pocketsmith.csv monarch.csv ACTION
-ACTION: list [Date | Account | ...] | nil
-"""
-
 import csv
 from sys import argv,stdout
 import datetime
-from collections import UserDict
+
+WINDOW_SZ = 3
 
 pocketsmith_transactions = []
-monarch_transactions = []
 fieldnames = ['Date', 'Description', 'Original Description', 'Amount', 'Transaction Type', 'Category', 'Account Name', 'Labels', 'Notes']
-
-def is_dup(new, old):
-    # If new is dup, return true
-    in_window =  datetime.timedelta(days = -7) <= new['Date'] - old['Date'] <= datetime.timedelta(days = 7)
-    amount_eqish = abs(new['Amount'] - old['Amount']) < 0.01
-    desc_match = set(new['Description'].upper().split()) & set(old['Description'].upper().split())
-
-    return in_window and amount_eqish and desc_match
 
 with open(argv[1], mode='r', newline='') as pocketsmith_infile:
     d_reader = csv.DictReader(pocketsmith_infile)
@@ -28,14 +15,14 @@ with open(argv[1], mode='r', newline='') as pocketsmith_infile:
         transaction = { 'Date': datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
                         'Description': row['Merchant'],
                         'Original Description': row['Memo'],
-                        'Amount': float(row['Amount']),
+                        'Amount': float(row['Amount'].replace('$', '').replace(',', '')),
                         'Transaction Type': row['Transaction Type'],
                         'Category': row['Category'],
                         'Account Name': row['Account'],
                         'Labels': 'Pocketsmith Import',
                         'Notes': row['Note']}
         pocketsmith_transactions.append(transaction)
-
+"""
 with open(argv[2], mode='r', newline='') as monarch_infile:
     d_reader = csv.DictReader(monarch_infile)
     for row in d_reader:
@@ -46,6 +33,7 @@ with open(argv[2], mode='r', newline='') as monarch_infile:
                         'Category': row['Category'],
                         'Account Name': row['Account'] }
         monarch_transactions.append(transaction)
+"""
 
 """
 luouelle@desktop ~/N/A/finance_app> python ~/Code/PocketSmithAPIScripts/remove_dups.py ./pocketsmith-transactions-2024-12-22.csv monarch-money-transactions-2024-12-29.csv | sort -u
@@ -58,29 +46,39 @@ First Tech Member Savings (ATM)
 First Tech Mortgage
 """
 
+pocketsmith_transactions.sort(key = lambda row: row['Amount'])
+pocketsmith_transactions.sort(key = lambda row: row['Date'])
 
-try:
-    action = argv[3]
-        
-    if action == 'list':
-        field = argv[4]
-        output = {row[field] for row in monarch_transactions} & {row[field] for row in pocketsmith_transactions}
-        for elem in output:
-            print(elem)
+known_dup_idx = set()
+d_writer = csv.DictWriter(stdout, fieldnames)
 
-    if action == 'dedup':
-        final_list = list(monarch_transactions) # deep copy
-        for transaction in pocketsmith_transactions:
-            if not any(is_dup(transaction, t) for t in final_list):
-                final_list.append(transaction)
-                print(transaction)
 
-    if action == 'getdup':
-        final_list = list(monarch_transactions) # deep copy
-        for transaction in pocketsmith_transactions:
-            if any(is_dup(transaction, t) for t in final_list):
-                print(transaction)
-            final_list.append(transaction)
+for primary_idx, transaction in enumerate(pocketsmith_transactions):
+    """
+    Sliding window. Grow window from right till size N (3 days).
+    Check if contains possible dups, if so print all of them.
+        Then constrict window from left until no dups exist or is size 0
+    if no dups and size == n, then slide window right
 
-except BrokenPipeError:
-    exit(0)
+    """
+
+    if primary_idx in known_dup_idx:
+        continue
+
+    lhs_idx, rhs_idx = primary_idx, primary_idx
+
+    # Slide left until we are N days from start point or at array end
+    while lhs_idx > 0 and (pocketsmith_transactions[primary_idx]['Date'] - pocketsmith_transactions[lhs_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
+        lhs_idx -= 1
+
+    # Slide right until we are N days from start point or at array end
+    while rhs_idx < len(pocketsmith_transactions) and (pocketsmith_transactions[rhs_idx]['Date'] - pocketsmith_transactions[primary_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
+        rhs_idx += 1
+
+    # Now we have our window defined, check if dups exist in this range
+    for comp_idx in range(lhs_idx, rhs_idx):
+        # Don't worry about merchants for now
+        if abs(pocketsmith_transactions[comp_idx]['Amount'] - pocketsmith_transactions[primary_idx]['Amount']) < .01 \
+            and primary_idx not in known_dup_idx:
+            d_writer.writerow(transaction)
+            known_dup_idx.add(primary_idx)
