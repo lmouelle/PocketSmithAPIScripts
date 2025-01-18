@@ -50,35 +50,47 @@ pocketsmith_transactions.sort(key = lambda row: row['Amount'])
 pocketsmith_transactions.sort(key = lambda row: row['Date'])
 
 known_dup_idx = set()
-d_writer = csv.DictWriter(stdout, fieldnames)
 
+def final_transform(transaction):
+    transaction['Date'] = datetime.datetime.strftime(transaction['Date'], '%Y-%m-%d')
+    transaction['Notes'] = transaction['Notes'].replace('\n', ' ').replace('\r', '')
+    return transaction
 
-for primary_idx, transaction in enumerate(pocketsmith_transactions):
-    """
-    Sliding window. Grow window from right till size N (3 days).
-    Check if contains possible dups, if so print all of them.
-        Then constrict window from left until no dups exist or is size 0
-    if no dups and size == n, then slide window right
+try:
+    for transaction_idx, transaction in enumerate(pocketsmith_transactions):
+        """
+        Sliding window. Grow window from right till size N (3 days).
+        Check if contains possible dups, if so print all of them.
+            Then constrict window from left until no dups exist or is size 0
+        if no dups and size == n, then slide window right
 
-    """
+        """
+        lhs_idx, rhs_idx = transaction_idx, transaction_idx
 
-    if primary_idx in known_dup_idx:
-        continue
+        # Slide left until we are N days from start point or at array end
+        while lhs_idx > 0 and (transaction['Date'] - pocketsmith_transactions[lhs_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
+            lhs_idx -= 1
 
-    lhs_idx, rhs_idx = primary_idx, primary_idx
+        # Slide right until we are N days from start point or at array end
+        while rhs_idx < len(pocketsmith_transactions) and (pocketsmith_transactions[rhs_idx]['Date'] - transaction['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
+            rhs_idx += 1
 
-    # Slide left until we are N days from start point or at array end
-    while lhs_idx > 0 and (pocketsmith_transactions[primary_idx]['Date'] - pocketsmith_transactions[lhs_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
-        lhs_idx -= 1
+        # Now we have our window defined, check if dups exist in this range
+        for comp_idx in range(lhs_idx, rhs_idx):
+            # Don't worry about merchants for now
+            if comp_idx in known_dup_idx:
+                continue
 
-    # Slide right until we are N days from start point or at array end
-    while rhs_idx < len(pocketsmith_transactions) and (pocketsmith_transactions[rhs_idx]['Date'] - pocketsmith_transactions[primary_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
-        rhs_idx += 1
+            if comp_idx == transaction_idx:
+                continue
 
-    # Now we have our window defined, check if dups exist in this range
-    for comp_idx in range(lhs_idx, rhs_idx):
-        # Don't worry about merchants for now
-        if abs(pocketsmith_transactions[comp_idx]['Amount'] - pocketsmith_transactions[primary_idx]['Amount']) < .01 \
-            and primary_idx not in known_dup_idx:
-            d_writer.writerow(transaction)
-            known_dup_idx.add(primary_idx)
+            if abs(pocketsmith_transactions[comp_idx]['Amount'] - transaction['Amount']) < .01:
+                known_dup_idx.add(comp_idx)
+                known_dup_idx.add(transaction_idx)
+
+    d_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
+    d_writer.writeheader()
+    d_writer.writerows(final_transform(x) for i, x in enumerate(pocketsmith_transactions) if i not in known_dup_idx)
+
+except BrokenPipeError:
+    pass
