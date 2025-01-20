@@ -33,13 +33,17 @@ Public transit commonly is multiple equal transactions within days
 so remove that as a false positive
 
 Also Too Good To Go
+
+Coffee Tree is where I got multiple of the same order every day
 """
-def filter_freq_trans(transaction):
+def filter_nonfreq_trans(transaction):
     if 'SEPTA' in transaction['Description'].upper():
         return False
     if 'TGTG' in transaction['Description'].upper():
         return False
     if 'MTA*NYCT' in transaction['Description'].upper():
+        return False
+    if 'Coffee Tree'.upper() in transaction['Description'].upper():
         return False
 
     return True
@@ -48,6 +52,20 @@ def sanitize_output(sanitize_output):
     sanitize_output['Date'] = datetime.datetime.strftime(sanitize_output['Date'], '%Y-%m-%d')
     sanitize_output['Notes'] = sanitize_output['Notes'].replace('\n', ' ').replace('\r', '')
     return sanitize_output
+
+def scan_range(pocketsmith_transactions, transaction_idx):
+    lhs_idx = rhs_idx = transaction_idx
+    transaction = pocketsmith_transactions[transaction_idx]
+
+    # Slide left until we are N days from start point or at array end
+    while lhs_idx > 0 and (transaction['Date'] - pocketsmith_transactions[lhs_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
+        lhs_idx -= 1
+
+    # Slide right until we are N days from start point or at array end
+    while rhs_idx < len(pocketsmith_transactions) and (pocketsmith_transactions[rhs_idx]['Date'] - transaction['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
+        rhs_idx += 1
+
+    return lhs_idx, rhs_idx
 
 try:
     for transaction_idx, transaction in enumerate(pocketsmith_transactions):
@@ -58,15 +76,7 @@ try:
         if no dups and size == n, then slide window right
 
         """
-        lhs_idx = rhs_idx = transaction_idx
-
-        # Slide left until we are N days from start point or at array end
-        while lhs_idx > 0 and (transaction['Date'] - pocketsmith_transactions[lhs_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
-            lhs_idx -= 1
-
-        # Slide right until we are N days from start point or at array end
-        while rhs_idx < len(pocketsmith_transactions) and (pocketsmith_transactions[rhs_idx]['Date'] - transaction['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
-            rhs_idx += 1
+        lhs_idx, rhs_idx = scan_range(pocketsmith_transactions, transaction_idx)
 
         # Now we have our window defined, check if dups exist in this range
         for comp_idx in range(lhs_idx, rhs_idx):
@@ -76,18 +86,23 @@ try:
 
             if comp_idx == transaction_idx:
                 continue
-
-            if abs(pocketsmith_transactions[comp_idx]['Amount'] - transaction['Amount']) < .01:
+            
+            equalish_amount = abs(pocketsmith_transactions[comp_idx]['Amount'] - transaction['Amount']) < .009
+            if equalish_amount and filter_nonfreq_trans(transaction):
                 known_dup_idxs.add(comp_idx)
                 known_dup_idxs.add(transaction_idx)
 
-    flagged_as_dups = [sanitize_output(x) for i, x in enumerate(pocketsmith_transactions) if i in known_dup_idxs and filter_freq_trans(x)]
+    flagged_as_dups = [x for i, x in enumerate(pocketsmith_transactions) if i in known_dup_idxs]
+    
     flagged_as_dups.sort(key=lambda row: row['Date'])
     flagged_as_dups.sort(key=lambda row: row['Amount'])
 
+    # Ok, where is an elem not the same
+
     notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
     notmatch_writer.writeheader()
-    notmatch_writer.writerows(flagged_as_dups)
+    # Dates are strings now after this!
+    notmatch_writer.writerows(sanitize_output(x) for x in flagged_as_dups)
 
 except BrokenPipeError:
     pass
