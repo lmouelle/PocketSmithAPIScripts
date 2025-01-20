@@ -22,39 +22,32 @@ with open(argv[1], mode='r', newline='') as pocketsmith_infile:
                         'Labels': 'Pocketsmith Import',
                         'Notes': row['Note']}
         pocketsmith_transactions.append(transaction)
-"""
-with open(argv[2], mode='r', newline='') as monarch_infile:
-    d_reader = csv.DictReader(monarch_infile)
-    for row in d_reader:
-        transaction = { 'Date': datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
-                        'Description': row['Merchant'],
-                        'Original Description': row['Original Statement'],
-                        'Amount': float(row['Amount']),
-                        'Category': row['Category'],
-                        'Account Name': row['Account'] }
-        monarch_transactions.append(transaction)
-"""
-
-"""
-luouelle@desktop ~/N/A/finance_app> python ~/Code/PocketSmithAPIScripts/remove_dups.py ./pocketsmith-transactions-2024-12-22.csv monarch-money-transactions-2024-12-29.csv | sort -u
-Bank of America Checking
-Bank Of America Credit Card
-Discover Crisis Fund
-Discover it Credit Card
-First Tech Checking (Rewards)
-First Tech Member Savings (ATM)
-First Tech Mortgage
-"""
 
 pocketsmith_transactions.sort(key = lambda row: row['Amount'])
 pocketsmith_transactions.sort(key = lambda row: row['Date'])
 
-known_dup_idx = set()
+known_dup_idxs = set()
 
-def final_transform(transaction):
-    transaction['Date'] = datetime.datetime.strftime(transaction['Date'], '%Y-%m-%d')
-    transaction['Notes'] = transaction['Notes'].replace('\n', ' ').replace('\r', '')
-    return transaction
+"""
+Public transit commonly is multiple equal transactions within days
+so remove that as a false positive
+
+Also Too Good To Go
+"""
+def filter_freq_trans(transaction):
+    if 'SEPTA' in transaction['Description'].upper():
+        return False
+    if 'TGTG' in transaction['Description'].upper():
+        return False
+    if 'MTA*NYCT' in transaction['Description'].upper():
+        return False
+
+    return True
+
+def sanitize_output(sanitize_output):
+    sanitize_output['Date'] = datetime.datetime.strftime(sanitize_output['Date'], '%Y-%m-%d')
+    sanitize_output['Notes'] = sanitize_output['Notes'].replace('\n', ' ').replace('\r', '')
+    return sanitize_output
 
 try:
     for transaction_idx, transaction in enumerate(pocketsmith_transactions):
@@ -65,7 +58,7 @@ try:
         if no dups and size == n, then slide window right
 
         """
-        lhs_idx, rhs_idx = transaction_idx, transaction_idx
+        lhs_idx = rhs_idx = transaction_idx
 
         # Slide left until we are N days from start point or at array end
         while lhs_idx > 0 and (transaction['Date'] - pocketsmith_transactions[lhs_idx]['Date'] <= datetime.timedelta(days=WINDOW_SZ)):
@@ -78,19 +71,23 @@ try:
         # Now we have our window defined, check if dups exist in this range
         for comp_idx in range(lhs_idx, rhs_idx):
             # Don't worry about merchants for now
-            if comp_idx in known_dup_idx:
+            if comp_idx in known_dup_idxs:
                 continue
 
             if comp_idx == transaction_idx:
                 continue
 
             if abs(pocketsmith_transactions[comp_idx]['Amount'] - transaction['Amount']) < .01:
-                known_dup_idx.add(comp_idx)
-                known_dup_idx.add(transaction_idx)
+                known_dup_idxs.add(comp_idx)
+                known_dup_idxs.add(transaction_idx)
 
-    d_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
-    d_writer.writeheader()
-    d_writer.writerows(final_transform(x) for i, x in enumerate(pocketsmith_transactions) if i not in known_dup_idx)
+    flagged_as_dups = [sanitize_output(x) for i, x in enumerate(pocketsmith_transactions) if i in known_dup_idxs and filter_freq_trans(x)]
+    flagged_as_dups.sort(key=lambda row: row['Date'])
+    flagged_as_dups.sort(key=lambda row: row['Amount'])
+
+    notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
+    notmatch_writer.writeheader()
+    notmatch_writer.writerows(flagged_as_dups)
 
 except BrokenPipeError:
     pass
