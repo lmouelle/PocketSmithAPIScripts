@@ -39,14 +39,15 @@ Coffee Tree is where I got multiple of the same order every day
 def filter_nonfreq_trans(transaction):
     if 'SEPTA' in transaction['Description'].upper():
         return False
-    if 'TGTG' in transaction['Description'].upper():
-        return False
     if 'MTA*NYCT' in transaction['Description'].upper():
         return False
     if 'Coffee Tree'.upper() in transaction['Description'].upper():
         return False
 
     return True
+
+def string_overlap(s1, s2):
+    return set(s1.upper().split()) & set(s2.upper().split())
 
 def sanitize_output(sanitize_output):
     sanitize_output['Date'] = datetime.datetime.strftime(sanitize_output['Date'], '%Y-%m-%d')
@@ -88,7 +89,9 @@ try:
                 continue
             
             equalish_amount = abs(pocketsmith_transactions[comp_idx]['Amount'] - transaction['Amount']) < .009
-            if equalish_amount and filter_nonfreq_trans(transaction):
+            if equalish_amount and filter_nonfreq_trans(transaction) \
+                and string_overlap(pocketsmith_transactions[comp_idx]['Description'], transaction['Description']) \
+                and string_overlap(pocketsmith_transactions[comp_idx]['Account Name'], transaction['Account Name']):
                 known_dup_idxs.add(comp_idx)
                 known_dup_idxs.add(transaction_idx)
 
@@ -96,8 +99,6 @@ try:
     
     flagged_as_dups.sort(key=lambda row: row['Date'])
     flagged_as_dups.sort(key=lambda row: row['Amount'])
-
-    # Ok, where is an elem not the same
 
     notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
     notmatch_writer.writeheader()
