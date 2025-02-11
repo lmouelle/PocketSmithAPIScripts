@@ -102,12 +102,15 @@ def run_loop(pocketsmith_transactions):
     flagged_as_dups.sort(key=lambda row: row['Date'])
     flagged_as_dups.sort(key=lambda row: row['Amount'])
 
+    return flagged_as_dups
+
+try:
+    flagged_as_dups = run_loop(pocketsmith_transactions)
+
     notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
     notmatch_writer.writeheader()
     # Dates are strings now after this!
     notmatch_writer.writerows(sanitize_output(x) for x in flagged_as_dups)
 
-try:
-    run_loop(pocketsmith_transactions)
 except BrokenPipeError:
     pass
