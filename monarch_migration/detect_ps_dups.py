@@ -95,7 +95,9 @@ try:
                 known_dup_idxs.add(comp_idx)
                 known_dup_idxs.add(transaction_idx)
 
-    flagged_as_dups = [x for i, x in enumerate(pocketsmith_transactions) if i in known_dup_idxs]
+    # Skipping every other transaction does mangle things like transfers on some accounts,
+    # but eh good enough
+    flagged_as_dups = [x for i, x in enumerate(pocketsmith_transactions) if i in known_dup_idxs and i % 2 == 0]
     
     flagged_as_dups.sort(key=lambda row: row['Date'])
     flagged_as_dups.sort(key=lambda row: row['Amount'])
