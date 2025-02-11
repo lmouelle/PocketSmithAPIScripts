@@ -97,20 +97,21 @@ def run_loop(pocketsmith_transactions):
 
     # Skipping every other transaction does mangle things like transfers on some accounts,
     # but eh good enough
-    flagged_as_dups = [x for i, x in enumerate(pocketsmith_transactions) if i in known_dup_idxs and i % 2 == 0]
+    removed_dups = [x for i, x in enumerate(pocketsmith_transactions) if i not in known_dup_idxs or i % 2 == 0]
     
-    flagged_as_dups.sort(key=lambda row: row['Date'])
-    flagged_as_dups.sort(key=lambda row: row['Amount'])
+    removed_dups.sort(key=lambda row: row['Date'])
+    removed_dups.sort(key=lambda row: row['Amount'])
 
-    return flagged_as_dups
+    return removed_dups
 
 try:
-    flagged_as_dups = run_loop(pocketsmith_transactions)
+    removed_ps_dups = run_loop(pocketsmith_transactions)
+
 
     notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
     notmatch_writer.writeheader()
     # Dates are strings now after this!
-    notmatch_writer.writerows(sanitize_output(x) for x in flagged_as_dups)
+    notmatch_writer.writerows(sanitize_output(x) for x in removed_ps_dups)
 
 except BrokenPipeError:
     pass
