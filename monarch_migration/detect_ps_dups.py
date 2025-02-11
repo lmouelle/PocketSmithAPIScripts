@@ -68,7 +68,7 @@ def scan_range(pocketsmith_transactions, transaction_idx):
 
     return lhs_idx, rhs_idx
 
-try:
+def run_loop(pocketsmith_transactions):
     for transaction_idx, transaction in enumerate(pocketsmith_transactions):
         """
         Sliding window. Grow window from right till size N (3 days).
@@ -107,5 +107,7 @@ try:
     # Dates are strings now after this!
     notmatch_writer.writerows(sanitize_output(x) for x in flagged_as_dups)
 
+try:
+    run_loop(pocketsmith_transactions)
 except BrokenPipeError:
     pass
