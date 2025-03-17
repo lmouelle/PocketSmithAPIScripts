@@ -3,10 +3,12 @@
 import csv
 from sys import argv,stdout
 import datetime
+from collections import defaultdict
 
 WINDOW_SZ = 3
 
 pocketsmith_transactions = []
+monarch_transactions = defaultdict(list)
 fieldnames = ['Date', 'Description', 'Original Description', 'Amount', 'Transaction Type', 'Category', 'Account Name', 'Labels', 'Notes']
 
 with open(argv[1], mode='r', newline='') as pocketsmith_infile:
@@ -22,6 +24,21 @@ with open(argv[1], mode='r', newline='') as pocketsmith_infile:
                         'Labels': 'Pocketsmith Import',
                         'Notes': row['Note']}
         pocketsmith_transactions.append(transaction)
+
+with open(argv[2], mode='r', newline='') as monarch_infile:
+    d_reader = csv.DictReader(monarch_infile)
+    for row in d_reader:
+        transaction = { 'Date': datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
+                        'Description': row['Merchant'],
+                        'Original Description': row['Original Statement'],
+                        'Amount': float(row['Amount'].replace('$', '').replace(',', '')),
+                        'Transaction Type': row['Transaction Type'],
+                        'Category': row['Category'],
+                        'Account Name': row['Account'],
+                        'Labels': 'Monarch Dup From Pocketsmith Import',
+                        'Notes': row['Notes']}
+                        
+        monarch_transactions[transaction['Date'].timetuple().tm_yday].add(transaction)
 
 pocketsmith_transactions.sort(key = lambda row: row['Amount'])
 pocketsmith_transactions.sort(key = lambda row: row['Date'])
@@ -104,14 +121,36 @@ def run_loop(pocketsmith_transactions):
 
     return removed_dups
 
-try:
-    removed_ps_dups = run_loop(pocketsmith_transactions)
 
+def mon_trans_overlap(ps_transaction, mon_transactions_day):
+    for transaction in mon_transactions_day:
+        equalish_amount = abs(transaction['Amount'] - ps_transaction['Amount']) < .01
+        if equalish_amount and filter_nonfreq_trans(transaction) \
+            and string_overlap(ps_transaction['Description'], transaction['Description']) \
+            and string_overlap(ps_transaction['Account Name'], transaction['Account Name']):
+            
+            return True
+
+    return False
+
+try:
+    ps_transactions_deduped = run_loop(pocketsmith_transactions)
+
+    # Everything in the monarch file is by def already there
+    # Do not bother with dedup logic, check check if it exists there and omit it
+    # if it already is in the pocketsmith transactions
+    output = []
+    for transaction in ps_transactions_deduped:
+        lower, upper = transaction['Date'].timetuple().tm_yday - WINDOW_SZ, transaction['Date'].timetuple().tm_yday + WINDOW_SZ
+        
+        for j in range(lower, upper + 1):
+            if not mon_trans_overlap(transaction, monarch_transactions[j]):
+                output.append(transaction)
 
     notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
     notmatch_writer.writeheader()
     # Dates are strings now after this!
-    notmatch_writer.writerows(sanitize_output(x) for x in removed_ps_dups)
+    notmatch_writer.writerows(sanitize_output(x) for x in output)
 
 except BrokenPipeError:
     pass
