@@ -32,13 +32,12 @@ with open(argv[2], mode='r', newline='') as monarch_infile:
                         'Description': row['Merchant'],
                         'Original Description': row['Original Statement'],
                         'Amount': float(row['Amount'].replace('$', '').replace(',', '')),
-                        'Transaction Type': row['Transaction Type'],
                         'Category': row['Category'],
                         'Account Name': row['Account'],
                         'Labels': 'Monarch Dup From Pocketsmith Import',
                         'Notes': row['Notes']}
                         
-        monarch_transactions[transaction['Date'].timetuple().tm_yday].add(transaction)
+        monarch_transactions[transaction['Date'].timetuple().tm_yday].append(transaction)
 
 pocketsmith_transactions.sort(key = lambda row: row['Amount'])
 pocketsmith_transactions.sort(key = lambda row: row['Date'])
@@ -66,10 +65,10 @@ def filter_nonfreq_trans(transaction):
 def string_overlap(s1, s2):
     return set(s1.upper().split()) & set(s2.upper().split())
 
-def sanitize_output(sanitize_output):
-    sanitize_output['Date'] = datetime.datetime.strftime(sanitize_output['Date'], '%Y-%m-%d')
-    sanitize_output['Notes'] = sanitize_output['Notes'].replace('\n', ' ').replace('\r', '')
-    return sanitize_output
+def sanitize_output(output):
+    output['Date'] = datetime.datetime.strftime(output['Date'], '%Y-%m-%d')
+    output['Notes'] = output['Notes'].replace('\n', ' ').replace('\r', '')
+    return output
 
 def scan_range(pocketsmith_transactions, transaction_idx):
     lhs_idx = rhs_idx = transaction_idx
