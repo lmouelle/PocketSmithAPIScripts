@@ -94,4 +94,58 @@ if not transactions:
 
 # Define dedup logic (big single array sorted by time, growing window by num days, accounts eq and amounts similar and merchants similar)
 
+transactions.sort(key = lambda row: row.Amount)
+transactions.sort(key = lambda row: row.Date)
+known_dup_idxs = set()
+
+def filter_nonfreq_trans(transaction):
+    if 'SEPTA' in transaction['Description'].upper():
+        return False
+    if 'MTA*NYCT' in transaction['Description'].upper():
+        return False
+    if 'Coffee Tree'.upper() in transaction['Description'].upper():
+        return False
+
+    return True
+
+# TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
+# TODO: I want to compare ordered tokens, not unordered tokens
+def string_overlap(s1, s2):
+    return set(s1.upper().split()) & set(s2.upper().split())
+
+def scan_range(transactions, transaction_idx):
+    lhs_idx = rhs_idx = transaction_idx
+    transaction = transactions[transaction_idx]
+
+    # Slide left until we are N days from start point or at array end
+    while lhs_idx > 0 and (transaction.Date - transactions[lhs_idx].Date <= datetime.timedelta(days=args.window_size_days)):
+        lhs_idx -= 1
+
+    # Slide right until we are N days from start point or at array end
+    while rhs_idx < len(transactions) and (transactions[rhs_idx].Date - transaction.Date <= datetime.timedelta(days=args.window_size_days)):
+        rhs_idx += 1
+
+    return lhs_idx, rhs_idx
+
+def are_dups(t1, t2):
+    equalish_amount = abs(transactions[comparison_idx].Amount - transaction.Amount) < .01
+    return equalish_amount \
+        and filter_nonfreq_trans(transaction) \
+        and string_overlap(transactions[comparison_idx].Merchant, transaction.Merchant) \
+        and string_overlap(transactions[comparison_idx].Account, transaction.Account)
+
+for transaction_idx, transaction in enumerate(transactions):
+    for comparison_idx in range(*scan_range(transactions, transaction_idx)):
+        if comparison_idx in known_dup_idxs:
+            continue
+
+        if comparison_idx == transaction_idx:
+            continue
+        
+        if are_dups(transactions[comparison_idx], transactions[transaction_idx]):
+            known_dup_idxs.add(comparison_idx)
+            known_dup_idxs.add(transaction_idx)
+
+# TODO: Handle unknown merchants, unknown category
+
 # Define stdout writer logic, sanitize to remove excess whitespace in notes and turn datetimes to strings, etc
