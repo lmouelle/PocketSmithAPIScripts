@@ -52,7 +52,7 @@ for filename in (args.capitalone or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
-            transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%m/%d/%Y'), 
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%m/%d/%y'), 
                                       Merchant= row['Transaction Description'],
                                       Amount= float(row['Transaction Amount']) if row['Transaction Type'] == 'Credit' else -float(row['Transaction Amount']),
                                       Category= 'Unknown',
