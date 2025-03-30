@@ -65,11 +65,6 @@ def filter_nonfreq_trans(transaction):
 def string_overlap(s1, s2):
     return set(s1.upper().split()) & set(s2.upper().split())
 
-def sanitize_output(output):
-    output['Date'] = datetime.datetime.strftime(output['Date'], '%Y-%m-%d')
-    output['Notes'] = output['Notes'].replace('\n', ' ').replace('\r', '')
-    return output
-
 def scan_range(pocketsmith_transactions, transaction_idx):
     lhs_idx = rhs_idx = transaction_idx
     transaction = pocketsmith_transactions[transaction_idx]
@@ -148,8 +143,10 @@ try:
 
     notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
     notmatch_writer.writeheader()
-    # Dates are strings now after this!
-    notmatch_writer.writerows(sanitize_output(x) for x in output)
+    for row in output:
+        row['Date'] = row['Date'].strftime('%Y-%m-%d')
+        row['Notes'] = row['Notes'].replace('\n', ' ').replace('\r', '')
+        notmatch_writer.writerow(row)
 
 except BrokenPipeError:
     pass
