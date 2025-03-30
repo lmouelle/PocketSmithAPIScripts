@@ -67,7 +67,7 @@ for filename in (args.fidelity_non_401k or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
-            transaction = Transaction(Date= datetime.datetime.strptime(row['Run Date'], '%m/%d/%Y'), 
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Run Date'], '%m/%d/%y'), 
                                       Merchant= f"{row['Action']}",
                                       Amount= float(row['Amount ($)']),
                                       Category= 'Unknown',
@@ -80,7 +80,7 @@ for filename in (args.fidelity_401k or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='', encoding='utf-8-sig') as infile:
         for row in csv.DictReader(infile):
-            transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%m/%d/%Y'), 
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%m/%d/%y'), 
                                       Merchant= row['Investment'],
                                       Amount= float(row['Amount ($)']),
                                       Category= row['Transaction Type'] or 'Unknown',
