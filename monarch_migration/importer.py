@@ -35,7 +35,7 @@ for filename in (args.discover or []):
                                       Notes= f"Discover CSV Import from {possible_account} has no merchant or category info")
             transactions.append(transaction)
 
-for filename in args.firsttech:
+for filename in (args.firsttech or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
