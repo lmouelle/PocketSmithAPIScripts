@@ -61,11 +61,7 @@ for filename in (args.capitalone or []):
                                       Notes= '')
             transactions.append(transaction)
 
-# TODO: I need some preprocessing for all fidelity CSVs to strip leading 2-3 rows of whitespace and last few lines of legal notice
-# before consuming it into the CSV reader
 # TODO: How can I combine investment account CSV import and importing holding information?
-# TODO: Define merging script to combine the multiple years of files for fidelity brokerage, 401k since
-# I could not download them all in one batch
 
 for filename in (args.fidelity_non_401k or []):
     possible_account = Path(filename).stem
