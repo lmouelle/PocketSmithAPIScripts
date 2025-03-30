@@ -58,7 +58,7 @@ for filename in (args.capitalone or []):
                                       Category= 'Unknown',
                                       Account= possible_account,
                                       Tags= 'Capital One Import, CSV Import',
-                                      Notes= f"{row['Memo']}")
+                                      Notes= '')
             transactions.append(transaction)
 
 # TODO: I need some preprocessing for all fidelity CSVs to strip leading 2-3 rows of whitespace and last few lines of legal notice
