@@ -42,7 +42,7 @@ for filename in (args.firsttech or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Posting Date'], '%m/%d/%Y'), 
                                       Merchant= row['Extended Description'],
                                       Amount= float(row['Amount']),
-                                      Category= row['Category'],
+                                      Category= row['Transaction Category'] or 'Unknown',
                                       Account= possible_account,
                                       Tags= 'First Tech Import, CSV Import',
                                       Notes= f"{row['Memo']}")
@@ -87,7 +87,7 @@ for filename in (args.fidelity_401k or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%m/%d/%Y'), 
                                       Merchant= row['Investment'],
                                       Amount= float(row['Amount ($)']),
-                                      Category= row['Transaction Type'],
+                                      Category= row['Transaction Type'] or 'Unknown',
                                       Account= possible_account,
                                       Tags= 'Fidelity 401k Import, CSV Import',
                                       Notes= '')
