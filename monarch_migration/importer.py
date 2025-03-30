@@ -22,8 +22,7 @@ Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 
 
 transactions = []
 
-# Examine args passed, use them to read all inputs given or error if none given
-for filename in args.discover:
+for filename in (args.discover or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
@@ -49,7 +48,7 @@ for filename in args.firsttech:
                                       Notes= f"{row['Memo']}")
             transactions.append(transaction)
 
-for filename in args.capitalone:
+for filename in (args.capitalone or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
@@ -68,7 +67,7 @@ for filename in args.capitalone:
 # TODO: Define merging script to combine the multiple years of files for fidelity brokerage, 401k since
 # I could not download them all in one batch
 
-for filename in args.fidelity_non_401k:
+for filename in (args.fidelity_non_401k or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
@@ -81,7 +80,7 @@ for filename in args.fidelity_non_401k:
                                       Notes= f"Extended Description: {row['Description']}, Symbol: {row['Symbol']}, Type: {row['Type']}")
             transactions.append(transaction)
 
-for filename in args.fidelity_401k:
+for filename in (args.fidelity_401k or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
