@@ -125,6 +125,8 @@ if not transactions:
 
 # TODO: Add monarch and pocketsmith csv reader parts
 
+# TODO: Normalize all account names, between monarch, pocketsmith, and the file names
+
 # Define dedup logic (big single array sorted by time, growing window by num days, accounts eq and amounts similar and merchants similar)
 
 transactions.sort(key = lambda row: row.Amount)
@@ -184,3 +186,5 @@ for transaction_idx, transaction in enumerate(transactions):
 # Define stdout writer logic, sanitize to remove excess whitespace in notes and turn datetimes to strings, etc
 
 # TODO: Handle fields as None, esp. Merchant, Description
+
+# TODO: Drop all items where Keep = False (viz. monarch, pocketsmith)
