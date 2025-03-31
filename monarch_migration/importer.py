@@ -15,6 +15,8 @@ argparser.add_argument('--fidelity-401k', action='append')
 argparser.add_argument('--fidelity-non-401k', action='append')
 argparser.add_argument('--pocketsmith', action='append')
 argparser.add_argument('--monarch', action='append')
+argparser.add_argument('--cap1creditcard', action='append')
+argparser.add_argument('--discoverit', action='append')
 argparser.add_argument('--window-size-days', default=3, type=int)
 args = argparser.parse_args()
 
@@ -117,7 +119,21 @@ for filename in (args.pocketsmith or []):
                                       Account= row['Account'],
                                       Tags= 'Pocketsmith Import, CSV Import',
                                       Notes= row['Note'].replace('\n', ' ').replace('\r', ' '),
-                                      Keep=False)
+                                      Keep=True)
+            transactions.append(transaction)
+
+for filename in (args.cap1creditcard or []):
+    possible_account = Path(filename).stem
+    with open(filename, mode='r', newline='') as infile:
+        for row in csv.DictReader(infile):
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%Y-%m-%d'), 
+                                      Merchant= row['Description'],
+                                      Amount= -float(row['Debit']) if row['Debit'] else float(row['Credit']),
+                                      Category= row['Category'],
+                                      Account= possible_account,
+                                      Tags= 'Capital One Card Import, CSV Import',
+                                      Notes= repr(row),
+                                      Keep=True)
             transactions.append(transaction)
 
 if not transactions:
