@@ -32,7 +32,7 @@ for filename in (args.discover or []):
                                       Category= None,
                                       Account= possible_account,
                                       Tags= 'Discover Import, CSV Import',
-                                      Notes= f"Discover CSV Import from {possible_account} has no merchant or category info")
+                                      Notes= repr(row))
             transactions.append(transaction)
 
 for filename in (args.firsttech or []):
@@ -45,7 +45,7 @@ for filename in (args.firsttech or []):
                                       Category= row['Transaction Category'] or 'Unknown',
                                       Account= possible_account,
                                       Tags= 'First Tech Import, CSV Import',
-                                      Notes= f"{row['Memo']}")
+                                      Notes= repr(row))
             transactions.append(transaction)
 
 for filename in (args.capitalone or []):
@@ -58,7 +58,7 @@ for filename in (args.capitalone or []):
                                       Category= None,
                                       Account= possible_account,
                                       Tags= 'Capital One Import, CSV Import',
-                                      Notes= '')
+                                      Notes= repr(row))
             transactions.append(transaction)
 
 # TODO: How can I combine investment account CSV import and importing holding information?
@@ -73,7 +73,7 @@ for filename in (args.fidelity_non_401k or []):
                                       Category= None,
                                       Account= possible_account,
                                       Tags= 'Fidelity Non 401k Import, CSV Import',
-                                      Notes= f"Extended Description: {row['Description']}, Symbol: {row['Symbol']}, Type: {row['Type']}")
+                                      Notes= repr(row))
             transactions.append(transaction)
 
 for filename in (args.fidelity_401k or []):
@@ -86,7 +86,7 @@ for filename in (args.fidelity_401k or []):
                                       Category= row['Transaction Type'] or 'Unknown',
                                       Account= possible_account,
                                       Tags= 'Fidelity 401k Import, CSV Import',
-                                      Notes= '')
+                                      Notes= repr(row))
             transactions.append(transaction)
 
 if not transactions:
