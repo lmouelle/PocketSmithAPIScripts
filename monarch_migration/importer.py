@@ -3,13 +3,16 @@
 import csv
 from pathlib import Path
 from sys import argv,stdout
+from operator import attrgetter
 import datetime
+from bisect import bisect, bisect_left
 from collections import defaultdict, namedtuple
 import argparse
 
 Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep'])
 
 # TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
+# so there will be some null fields.
 # TODO: I want to compare ordered tokens, not unordered tokens
 def string_overlap(s1 : str, s2 : str):
     return set(s1.upper().split()) & set(s2.upper().split())
@@ -46,6 +49,21 @@ def filter_nonfreq_trans(transaction : Transaction):
 
     return True
 
+def binary_search(l, value):
+    low = 0
+    high = len(l)-1
+    while low <= high: 
+        mid = (low+high)//2
+        if l[mid] > value: high = mid-1
+        elif l[mid] < value: low = mid+1
+        else: return mid
+    return -1
+
+def format_transaction(row):
+    d = row._asdict()
+    d['Date'] = row.Date.strftime('%Y-%m-%d')
+    return d
+
 argparser = argparse.ArgumentParser(prog='DedupScript', description='Dedup script for finance apps')
 argparser.add_argument('--discover', action='append')
 argparser.add_argument('--firsttech', action='append')
@@ -57,10 +75,17 @@ argparser.add_argument('--monarch', action='append')
 argparser.add_argument('--cap1creditcard', action='append')
 argparser.add_argument('--discoverit', action='append')
 argparser.add_argument('--window-size-days', default=3, type=int)
+
+group = argparser.add_mutually_exclusive_group(required=True)
+group.add_argument('--dups', action='store_true')
+group.add_argument('--nondups', action='store_true')
+group.add_argument('--mondups', action='store_true')
+
 args = argparser.parse_args()
 
 
 transactions = []
+monarch_transactions = []
 
 for filename in (args.discover or []):
     possible_account = Path(filename).stem
@@ -134,13 +159,6 @@ for filename in (args.fidelity_401k or []):
                                       Keep=True)
             transactions.append(transaction)
 
-
-# TODO: How to handle monarch? The files in here are by def already in the app
-# If I add this to the array like other elements, and then try to dedup N copies
-# by keeping the monarch copy, I'd end up inserting the copy into Monarch. 
-# Best to recreate what I was doing in the other script, make this a big dict/set
-# and just check `(copy not in monarch_transactions)`. Or just use the keep=False item I added?
-"""
 for filename in (args.monarch or []):
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
@@ -152,8 +170,7 @@ for filename in (args.monarch or []):
                                       Tags= row['Tags'],
                                       Notes= row['Notes'],
                                       Keep=False)
-            transactions.append(transaction)
-"""
+            monarch_transactions.append(transaction)
 
 for filename in (args.pocketsmith or []):
     with open(filename, mode='r', newline='') as infile:
@@ -203,19 +220,49 @@ if not transactions:
 
 transactions.sort(key = lambda row: row.Amount)
 transactions.sort(key = lambda row: row.Date)
-known_dup_idxs = set()
+
+monarch_transactions.sort(key = lambda row: row.Amount)
+monarch_transactions.sort(key = lambda row: row.Date)
+
+# key is idx, value is set of dups
+dups_by_idx = defaultdict(set)
+# key is transaction idx, value is monarch transaction idx
+monarch_dups_by_idx = defaultdict(set)
 
 for transaction_idx, transaction in enumerate(transactions):
     for comparison_idx in range(*scan_range(transactions, transaction_idx)):
-        if comparison_idx in known_dup_idxs:
-            continue
-
         if comparison_idx == transaction_idx:
             continue
         
-        if are_dups(transactions[comparison_idx], transactions[transaction_idx]):
-            known_dup_idxs.add(comparison_idx)
-            known_dup_idxs.add(transaction_idx)
+        if are_dups(transactions[comparison_idx], transaction):
+            dups_by_idx[comparison_idx].add(transaction_idx)
+            dups_by_idx[transaction_idx].add(comparison_idx)
+
+    monarch_lhs = bisect_left(monarch_transactions, transaction, key= attrgetter('Date'))
+    for mon_comparison_idx in range(*scan_range(monarch_transactions, monarch_lhs)):
+        if comparison_idx == transaction_idx:
+            continue
+
+        if are_dups(monarch_transactions[mon_comparison_idx], transaction):
+            monarch_dups_by_idx[transaction_idx].add(mon_comparison_idx)
+
+# Now I should have 2 groups of multisets:
+# One holds all duplicates in the general transactions
+# The other maps monarch indexes to the set of things they replace
+notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
+notmatch_writer.writeheader()
+
+for row in output:
+    row['Notes'] = row['Notes'].replace('\n', ' ').replace('\r', '')
+    notmatch_writer.writerow(row)
+
+for transaction_idx, transaction in enumerate(transactions):
+    if args.mondups and transaction_idx in monarch_dups_by_idx:
+        notmatch_writer.writerow(format_transaction(transaction))
+    if args.nondups and transaction_idx not in dups_by_idx:
+        notmatch_writer.writerow(format_transaction(transaction))
+    if args.dups and transaction_idx in dups_by_idx:
+        notmatch_writer.writerow(format_transaction(transaction))
 
 # TODO: Handle unknown merchants, unknown category
 
