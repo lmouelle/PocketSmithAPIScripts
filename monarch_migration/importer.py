@@ -27,9 +27,9 @@ for filename in (args.discover or []):
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%m/%d/%Y'), 
-                                      Merchant= 'Unknown',
+                                      Merchant= None,
                                       Amount= float(row['Credit']) if row['Transaction Type'] == 'Credit' else -float(row['Debit']),
-                                      Category= 'Unknown',
+                                      Category= None,
                                       Account= possible_account,
                                       Tags= 'Discover Import, CSV Import',
                                       Notes= f"Discover CSV Import from {possible_account} has no merchant or category info")
@@ -55,7 +55,7 @@ for filename in (args.capitalone or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%m/%d/%y'), 
                                       Merchant= row['Transaction Description'],
                                       Amount= float(row['Transaction Amount']) if row['Transaction Type'] == 'Credit' else -float(row['Transaction Amount']),
-                                      Category= 'Unknown',
+                                      Category= None,
                                       Account= possible_account,
                                       Tags= 'Capital One Import, CSV Import',
                                       Notes= '')
@@ -70,7 +70,7 @@ for filename in (args.fidelity_non_401k or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Run Date'], '%m/%d/%y'), 
                                       Merchant= f"{row['Action']}",
                                       Amount= float(row['Amount ($)']),
-                                      Category= 'Unknown',
+                                      Category= None,
                                       Account= possible_account,
                                       Tags= 'Fidelity Non 401k Import, CSV Import',
                                       Notes= f"Extended Description: {row['Description']}, Symbol: {row['Symbol']}, Type: {row['Type']}")
