@@ -92,6 +92,8 @@ for filename in (args.fidelity_401k or []):
 if not transactions:
     argparser.error("Must provide at least one input")
 
+# TODO: Add monarch and pocketsmith csv reader parts
+
 # Define dedup logic (big single array sorted by time, growing window by num days, accounts eq and amounts similar and merchants similar)
 
 transactions.sort(key = lambda row: row.Amount)
@@ -149,3 +151,5 @@ for transaction_idx, transaction in enumerate(transactions):
 # TODO: Handle unknown merchants, unknown category
 
 # Define stdout writer logic, sanitize to remove excess whitespace in notes and turn datetimes to strings, etc
+
+# TODO: Handle fields as None, esp. Merchant, Description
