@@ -133,22 +133,22 @@ transactions.sort(key = lambda row: row.Amount)
 transactions.sort(key = lambda row: row.Date)
 known_dup_idxs = set()
 
-def filter_nonfreq_trans(transaction):
-    if 'SEPTA' in transaction['Description'].upper():
+def filter_nonfreq_trans(transaction : Transaction):
+    if 'SEPTA' in transaction.Merchant.upper():
         return False
-    if 'MTA*NYCT' in transaction['Description'].upper():
+    if 'MTA*NYCT' in transaction.Merchant.upper():
         return False
-    if 'Coffee Tree'.upper() in transaction['Description'].upper():
+    if 'Coffee Tree'.upper() in transaction.Merchant.upper():
         return False
 
     return True
 
 # TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
 # TODO: I want to compare ordered tokens, not unordered tokens
-def string_overlap(s1, s2):
+def string_overlap(s1 : str, s2 : str):
     return set(s1.upper().split()) & set(s2.upper().split())
 
-def scan_range(transactions, transaction_idx):
+def scan_range(transactions : List[Transaction], transaction_idx : int):
     lhs_idx = rhs_idx = transaction_idx
     transaction = transactions[transaction_idx]
 
@@ -162,7 +162,7 @@ def scan_range(transactions, transaction_idx):
 
     return lhs_idx, rhs_idx
 
-def are_dups(t1, t2):
+def are_dups(t1 : Transaction, t2 : Transaction):
     equalish_amount = abs(transactions[comparison_idx].Amount - transaction.Amount) < .01
     return equalish_amount \
         and filter_nonfreq_trans(transaction) \
