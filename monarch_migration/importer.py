@@ -7,6 +7,45 @@ import datetime
 from collections import defaultdict, namedtuple
 import argparse
 
+Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep'])
+
+# TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
+# TODO: I want to compare ordered tokens, not unordered tokens
+def string_overlap(s1 : str, s2 : str):
+    return set(s1.upper().split()) & set(s2.upper().split())
+
+def scan_range(transactions : List[Transaction], transaction_idx : int):
+    lhs_idx = rhs_idx = transaction_idx
+    transaction = transactions[transaction_idx]
+
+    # Slide left until we are N days from start point or at array end
+    while lhs_idx > 0 and (transaction.Date - transactions[lhs_idx].Date <= datetime.timedelta(days=args.window_size_days)):
+        lhs_idx -= 1
+
+    # Slide right until we are N days from start point or at array end
+    while rhs_idx < len(transactions) and (transactions[rhs_idx].Date - transaction.Date <= datetime.timedelta(days=args.window_size_days)):
+        rhs_idx += 1
+
+    return lhs_idx, rhs_idx
+
+def are_dups(t1 : Transaction, t2 : Transaction):
+    equalish_amount = abs(transactions[comparison_idx].Amount - transaction.Amount) < .01
+    return equalish_amount \
+        and filter_nonfreq_trans(transaction) \
+        and string_overlap(transactions[comparison_idx].Merchant, transaction.Merchant) \
+        and string_overlap(transactions[comparison_idx].Account, transaction.Account)
+
+
+def filter_nonfreq_trans(transaction : Transaction):
+    if 'SEPTA' in transaction.Merchant.upper():
+        return False
+    if 'MTA*NYCT' in transaction.Merchant.upper():
+        return False
+    if 'Coffee Tree'.upper() in transaction.Merchant.upper():
+        return False
+
+    return True
+
 argparser = argparse.ArgumentParser(prog='DedupScript', description='Dedup script for finance apps')
 argparser.add_argument('--discover', action='append')
 argparser.add_argument('--firsttech', action='append')
@@ -20,7 +59,6 @@ argparser.add_argument('--discoverit', action='append')
 argparser.add_argument('--window-size-days', default=3, type=int)
 args = argparser.parse_args()
 
-Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep'])
 
 transactions = []
 
@@ -101,7 +139,7 @@ for filename in (args.fidelity_401k or []):
 # If I add this to the array like other elements, and then try to dedup N copies
 # by keeping the monarch copy, I'd end up inserting the copy into Monarch. 
 # Best to recreate what I was doing in the other script, make this a big dict/set
-# and just check `(copy not in monarch_transactions)`
+# and just check `(copy not in monarch_transactions)`. Or just use the keep=False item I added?
 """
 for filename in (args.monarch or []):
     with open(filename, mode='r', newline='') as infile:
@@ -158,56 +196,14 @@ for filename in (args.discoverit or []):
                                       Keep=True)
             transactions.append(transaction)
 
-# TODO: Add formatter for discover credit card, venture x and quicksilver (yes, all different)
-
 if not transactions:
     argparser.error("Must provide at least one input")
 
-# TODO: Add monarch and pocketsmith csv reader parts
-
 # TODO: Normalize all account names, between monarch, pocketsmith, and the file names
-
-# Define dedup logic (big single array sorted by time, growing window by num days, accounts eq and amounts similar and merchants similar)
 
 transactions.sort(key = lambda row: row.Amount)
 transactions.sort(key = lambda row: row.Date)
 known_dup_idxs = set()
-
-def filter_nonfreq_trans(transaction : Transaction):
-    if 'SEPTA' in transaction.Merchant.upper():
-        return False
-    if 'MTA*NYCT' in transaction.Merchant.upper():
-        return False
-    if 'Coffee Tree'.upper() in transaction.Merchant.upper():
-        return False
-
-    return True
-
-# TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
-# TODO: I want to compare ordered tokens, not unordered tokens
-def string_overlap(s1 : str, s2 : str):
-    return set(s1.upper().split()) & set(s2.upper().split())
-
-def scan_range(transactions : List[Transaction], transaction_idx : int):
-    lhs_idx = rhs_idx = transaction_idx
-    transaction = transactions[transaction_idx]
-
-    # Slide left until we are N days from start point or at array end
-    while lhs_idx > 0 and (transaction.Date - transactions[lhs_idx].Date <= datetime.timedelta(days=args.window_size_days)):
-        lhs_idx -= 1
-
-    # Slide right until we are N days from start point or at array end
-    while rhs_idx < len(transactions) and (transactions[rhs_idx].Date - transaction.Date <= datetime.timedelta(days=args.window_size_days)):
-        rhs_idx += 1
-
-    return lhs_idx, rhs_idx
-
-def are_dups(t1 : Transaction, t2 : Transaction):
-    equalish_amount = abs(transactions[comparison_idx].Amount - transaction.Amount) < .01
-    return equalish_amount \
-        and filter_nonfreq_trans(transaction) \
-        and string_overlap(transactions[comparison_idx].Merchant, transaction.Merchant) \
-        and string_overlap(transactions[comparison_idx].Account, transaction.Account)
 
 for transaction_idx, transaction in enumerate(transactions):
     for comparison_idx in range(*scan_range(transactions, transaction_idx)):
@@ -226,5 +222,3 @@ for transaction_idx, transaction in enumerate(transactions):
 # Define stdout writer logic, sanitize to remove excess whitespace in notes and turn datetimes to strings, etc
 
 # TODO: Handle fields as None, esp. Merchant, Description
-
-# TODO: Drop all items where Keep = False (viz. monarch, pocketsmith)
