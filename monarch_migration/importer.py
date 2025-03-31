@@ -144,6 +144,20 @@ for filename in (args.cap1creditcard or []):
                                       Keep=True)
             transactions.append(transaction)
 
+for filename in (args.discoverit or []):
+    possible_account = Path(filename).stem
+    with open(filename, mode='r', newline='') as infile:
+        for row in csv.DictReader(infile):
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Trans. Date'], '%m/%d/%y'), 
+                                      Merchant= row['Description'],
+                                      Amount= float(row['Amount']),
+                                      Category= row['Category'],
+                                      Account= possible_account,
+                                      Tags= 'Discover it Card Import, CSV Import',
+                                      Notes= repr(row),
+                                      Keep=True)
+            transactions.append(transaction)
+
 # TODO: Add formatter for discover credit card, venture x and quicksilver (yes, all different)
 
 if not transactions:
