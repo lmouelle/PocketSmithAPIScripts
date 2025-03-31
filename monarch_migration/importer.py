@@ -18,7 +18,7 @@ argparser.add_argument('--monarch', action='append')
 argparser.add_argument('--window-size-days', default=3, type=int)
 args = argparser.parse_args()
 
-Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account'])
+Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep'])
 
 transactions = []
 
@@ -32,7 +32,8 @@ for filename in (args.discover or []):
                                       Category= None,
                                       Account= possible_account,
                                       Tags= 'Discover Import, CSV Import',
-                                      Notes= repr(row))
+                                      Notes= repr(row),
+                                      Keep=True)
             transactions.append(transaction)
 
 for filename in (args.firsttech or []):
@@ -45,7 +46,8 @@ for filename in (args.firsttech or []):
                                       Category= row['Transaction Category'] or 'Unknown',
                                       Account= possible_account,
                                       Tags= 'First Tech Import, CSV Import',
-                                      Notes= repr(row))
+                                      Notes= repr(row),
+                                      Keep=True)
             transactions.append(transaction)
 
 for filename in (args.capitalone or []):
@@ -58,7 +60,8 @@ for filename in (args.capitalone or []):
                                       Category= None,
                                       Account= possible_account,
                                       Tags= 'Capital One Import, CSV Import',
-                                      Notes= repr(row))
+                                      Notes= repr(row),
+                                      Keep=True)
             transactions.append(transaction)
 
 # TODO: How can I combine investment account CSV import and importing holding information?
@@ -73,7 +76,8 @@ for filename in (args.fidelity_non_401k or []):
                                       Category= None,
                                       Account= possible_account,
                                       Tags= 'Fidelity Non 401k Import, CSV Import',
-                                      Notes= repr(row))
+                                      Notes= repr(row),
+                                      Keep=True)
             transactions.append(transaction)
 
 for filename in (args.fidelity_401k or []):
@@ -86,7 +90,34 @@ for filename in (args.fidelity_401k or []):
                                       Category= row['Transaction Type'],
                                       Account= possible_account,
                                       Tags= 'Fidelity 401k Import, CSV Import',
-                                      Notes= repr(row))
+                                      Notes= repr(row),
+                                      Keep=True)
+            transactions.append(transaction)
+
+for filename in (args.monarch or []):
+    with open(filename, mode='r', newline='') as infile:
+        for row in csv.DictReader(infile):
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
+                                      Merchant= row['Original Statement'],
+                                      Amount= float(row['Amount']),
+                                      Category= row['Category'],
+                                      Account= row['Account'],
+                                      Tags= row['Tags'],
+                                      Notes= row['Notes'],
+                                      Keep=False)
+            transactions.append(transaction)
+
+for filename in (args.pocketsmith or []):
+    with open(filename, mode='r', newline='') as infile:
+        for row in csv.DictReader(infile):
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
+                                      Merchant= row['Memo'],
+                                      Amount= float(row['Amount'].replace('$', '').replace(',', '')),
+                                      Category= row['Category'],
+                                      Account= row['Account'],
+                                      Tags= 'Pocketsmith Import, CSV Import',
+                                      Notes= row['Note'].replace('\n', ' ').replace('\r', ' '),
+                                      Keep=False)
             transactions.append(transaction)
 
 if not transactions:
