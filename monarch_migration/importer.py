@@ -96,6 +96,13 @@ for filename in (args.fidelity_401k or []):
                                       Keep=True)
             transactions.append(transaction)
 
+
+# TODO: How to handle monarch? The files in here are by def already in the app
+# If I add this to the array like other elements, and then try to dedup N copies
+# by keeping the monarch copy, I'd end up inserting the copy into Monarch. 
+# Best to recreate what I was doing in the other script, make this a big dict/set
+# and just check `(copy not in monarch_transactions)`
+"""
 for filename in (args.monarch or []):
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
@@ -108,6 +115,7 @@ for filename in (args.monarch or []):
                                       Notes= row['Notes'],
                                       Keep=False)
             transactions.append(transaction)
+"""
 
 for filename in (args.pocketsmith or []):
     with open(filename, mode='r', newline='') as infile:
@@ -135,6 +143,8 @@ for filename in (args.cap1creditcard or []):
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
+
+# TODO: Add formatter for discover credit card, venture x and quicksilver (yes, all different)
 
 if not transactions:
     argparser.error("Must provide at least one input")
