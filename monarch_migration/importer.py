@@ -83,7 +83,7 @@ for filename in (args.fidelity_401k or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%m/%d/%y'), 
                                       Merchant= row['Investment'],
                                       Amount= float(row['Amount ($)']),
-                                      Category= row['Transaction Type'] or 'Unknown',
+                                      Category= row['Transaction Type'],
                                       Account= possible_account,
                                       Tags= 'Fidelity 401k Import, CSV Import',
                                       Notes= repr(row))
