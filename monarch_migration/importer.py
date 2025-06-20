@@ -239,11 +239,10 @@ for transaction_idx, transaction in enumerate(transactions):
             dups_by_idx[comparison_idx].add(transaction_idx)
             dups_by_idx[transaction_idx].add(comparison_idx)
 
-    monarch_lhs = bisect_left(monarch_transactions, transaction, key= attrgetter('Date'))
+    monarch_lhs = bisect_left(monarch_transactions, transaction.Date, key= attrgetter('Date'))
     for mon_comparison_idx in range(*scan_range(monarch_transactions, monarch_lhs)):
         if comparison_idx == transaction_idx:
             continue
-
         if are_dups(monarch_transactions[mon_comparison_idx], transaction):
             monarch_dups_by_idx[transaction_idx].add(mon_comparison_idx)
 
