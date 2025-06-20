@@ -17,7 +17,7 @@ Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 
 def string_overlap(s1 : str, s2 : str):
     return set(s1.upper().split()) & set(s2.upper().split())
 
-def scan_range(transactions : List[Transaction], transaction_idx : int):
+def scan_range(transactions : list[Transaction], transaction_idx : int):
     lhs_idx = rhs_idx = transaction_idx
     transaction = transactions[transaction_idx]
 
@@ -203,7 +203,7 @@ for filename in (args.discoverit or []):
     possible_account = Path(filename).stem
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
-            transaction = Transaction(Date= datetime.datetime.strptime(row['Trans. Date'], '%m/%d/%y'), 
+            transaction = Transaction(Date= datetime.datetime.strptime(row['Trans. Date'], '%m/%d/%Y'), 
                                       Merchant= row['Description'],
                                       Amount= float(row['Amount']),
                                       Category= row['Category'],
