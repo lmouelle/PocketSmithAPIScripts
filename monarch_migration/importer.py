@@ -9,7 +9,8 @@ from bisect import bisect, bisect_left
 from collections import defaultdict, namedtuple
 import argparse
 
-Transaction = namedtuple('Transaction', ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep'])
+fieldnames= ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep']
+Transaction = namedtuple('Transaction', fieldnames)
 
 # TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
 # so there will be some null fields.
