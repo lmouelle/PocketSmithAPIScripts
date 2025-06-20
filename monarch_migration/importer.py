@@ -61,6 +61,7 @@ def binary_search(l, value):
 
 def format_transaction(row):
     d = row._asdict()
+    d['Notes'] = row.Notes.replace('\n', ' ').replace('\r', '')
     d['Date'] = row.Date.strftime('%Y-%m-%d')
     return d
 
@@ -251,10 +252,6 @@ for transaction_idx, transaction in enumerate(transactions):
 # The other maps monarch indexes to the set of things they replace
 notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
 notmatch_writer.writeheader()
-
-for row in output:
-    row['Notes'] = row['Notes'].replace('\n', ' ').replace('\r', '')
-    notmatch_writer.writerow(row)
 
 for transaction_idx, transaction in enumerate(transactions):
     if args.mondups and transaction_idx in monarch_dups_by_idx:
