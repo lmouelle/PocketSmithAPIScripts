@@ -79,7 +79,7 @@ argparser.add_argument('--pocketsmith', action='append')
 argparser.add_argument('--monarch', action='append')
 argparser.add_argument('--cap1creditcard', action='append')
 argparser.add_argument('--discoverit', action='append')
-argparser.add_argument('--window-size-days', default=3, type=int)
+argparser.add_argument('--window-size-days', default=1, type=int)
 
 group = argparser.add_mutually_exclusive_group(required=True)
 group.add_argument('--dups', action='store_true')
