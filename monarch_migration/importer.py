@@ -46,6 +46,10 @@ def filter_nonfreq_trans(transaction : Transaction):
         return False
     if 'Coffee Tree'.upper() in transaction.Merchant.upper():
         return False
+    if 'AMK Capital One'.upper() in transaction.Merchant.upper():
+        return False
+    if 'Dingfelder'.upper() in transaction.Merchant.upper():
+        return False
 
     return True
 
