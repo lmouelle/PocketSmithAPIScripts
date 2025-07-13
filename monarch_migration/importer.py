@@ -10,6 +10,8 @@ from collections import defaultdict, namedtuple
 import argparse
 from math import isclose
 
+WINDOW_SIZE_DAYS = 5
+
 fieldnames= ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep']
 Transaction = namedtuple('Transaction', fieldnames)
 
@@ -21,11 +23,11 @@ def scan_range(transactions : list[Transaction], transaction_idx : int):
     transaction = transactions[transaction_idx]
 
     # Slide left until we are N days from start point or at array end
-    while lhs_idx > 0 and (transaction.Date - transactions[lhs_idx].Date <= datetime.timedelta(days=args.window_size_days)):
+    while lhs_idx > 0 and (transaction.Date - transactions[lhs_idx].Date <= datetime.timedelta(days=WINDOW_SIZE_DAYS)):
         lhs_idx -= 1
 
     # Slide right until we are N days from start point or at array end
-    while rhs_idx < len(transactions) and (transactions[rhs_idx].Date - transaction.Date <= datetime.timedelta(days=args.window_size_days)):
+    while rhs_idx < len(transactions) and (transactions[rhs_idx].Date - transaction.Date <= datetime.timedelta(days=WINDOW_SIZE_DAYS)):
         rhs_idx += 1
 
     return lhs_idx, rhs_idx
@@ -59,7 +61,7 @@ def format_transaction(row):
         'Labels': row.Tags,
         'Description': row.Merchant,
         'Original Description': '',
-        'Amount': row.Amount,
+        'Amount': abs(row.Amount), # TODO: Does using 'debit' with a negative number force a refund on import?
         'Transaction Type': 'debit' if row.Amount < 0.0 else 'credit',
         'Category': row.Category,
         'Account Name': row.Account,
@@ -127,7 +129,7 @@ for filename in (args.capitalone or []):
                                       Amount= float(row['Transaction Amount']) if row['Transaction Type'] == 'Credit' else -float(row['Transaction Amount']),
                                       Category= 'Uncategorized',
                                       Account= possible_account,
-                                      Tags= 'Capital_One_Import, CSV_Import',
+                                      Tags= 'Capital_One_Bank_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
@@ -177,7 +179,7 @@ for filename in (args.pocketsmith or []):
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Date'], '%Y-%m-%d'), 
-                                      Merchant= row['Memo'],
+                                      Merchant= row['Merchant'],
                                       Amount= float(row['Amount'].replace('$', '').replace(',', '')),
                                       Category= row['Category'],
                                       Account= row['Account'],
@@ -251,13 +253,18 @@ for transaction_idx, transaction in enumerate(transactions):
 notmatch_writer = csv.DictWriter(stdout, external_fieldnames, quoting=csv.QUOTE_ALL)
 notmatch_writer.writeheader()
 
-for transaction_idx, transaction in enumerate(transactions):
-    if args.mondups and transaction_idx in monarch_dups_by_idx:
-        notmatch_writer.writerow(format_transaction(transaction))
-    if args.nondups and transaction_idx not in dups_by_idx and transaction_idx not in monarch_dups_by_idx:
-        notmatch_writer.writerow(format_transaction(transaction))
-    if args.dups and transaction_idx in dups_by_idx:
-        notmatch_writer.writerow(format_transaction(transaction))
+if args.mondups:
+    for transaction_idx, transaction in enumerate(transactions):
+        if args.mondups and transaction_idx in monarch_dups_by_idx:
+            notmatch_writer.writerow(format_transaction(transaction)) 
+if args.nondups:
+    for transaction_idx, transaction in enumerate(transactions):
+        if transaction_idx not in dups_by_idx and transaction_idx not in monarch_dups_by_idx:
+            notmatch_writer.writerow(format_transaction(transaction))
+if args.dups:
+    for transaction_idx, transaction in enumerate(transactions):
+        if transaction_idx in dups_by_idx and transaction_idx % 2 == 0:
+            notmatch_writer.writerow(format_transaction(transaction))
 
 # TODO: We have easy emission of non dups and mon dups
 # issue is, a lot of the transactions in dups are valid.
