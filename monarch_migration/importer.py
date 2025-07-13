@@ -2,21 +2,19 @@
 
 import csv
 from pathlib import Path
-from sys import argv,stdout
+from sys import stdout
 from operator import attrgetter
 import datetime
-from bisect import bisect, bisect_left
+from bisect import bisect_left
 from collections import defaultdict, namedtuple
 import argparse
+from math import isclose
 
 fieldnames= ['Amount', 'Date', 'Merchant', 'Notes', 'Category', 'Tags', 'Account', 'Keep']
 Transaction = namedtuple('Transaction', fieldnames)
 
-# TODO: Not sure I can use this since some imports do not have merchant info on some CSV imports
-# so there will be some null fields.
-# TODO: I want to compare ordered tokens, not unordered tokens
 def string_overlap(s1 : str, s2 : str):
-    return set(s1.upper().split()) & set(s2.upper().split())
+    return any(set(s1.upper().split()) & set(s2.upper().split()))
 
 def scan_range(transactions : list[Transaction], transaction_idx : int):
     lhs_idx = rhs_idx = transaction_idx
@@ -33,12 +31,9 @@ def scan_range(transactions : list[Transaction], transaction_idx : int):
     return lhs_idx, rhs_idx
 
 def are_dups(t1 : Transaction, t2 : Transaction):
-    equalish_amount = abs(transactions[comparison_idx].Amount - transaction.Amount) < .01
-    return equalish_amount \
+    return isclose(t1.Amount, t2.Amount) \
         and filter_nonfreq_trans(transaction) \
-        and string_overlap(transactions[comparison_idx].Merchant, transaction.Merchant) \
-        and string_overlap(transactions[comparison_idx].Account, transaction.Account)
-
+        and string_overlap(transactions[comparison_idx].Merchant, transaction.Merchant)
 
 def filter_nonfreq_trans(transaction : Transaction):
     if 'SEPTA' in transaction.Merchant.upper():
@@ -51,23 +46,25 @@ def filter_nonfreq_trans(transaction : Transaction):
         return False
     if 'Dingfelder'.upper() in transaction.Merchant.upper():
         return False
+    if 'TGTG'.upper() in transaction.Merchant.upper():
+        return False
 
     return True
 
-def binary_search(l, value):
-    low = 0
-    high = len(l)-1
-    while low <= high: 
-        mid = (low+high)//2
-        if l[mid] > value: high = mid-1
-        elif l[mid] < value: low = mid+1
-        else: return mid
-    return -1
-
+external_fieldnames = ['Date', 'Description', 'Original Description', 'Amount', 'Transaction Type', 'Category', 'Account Name', 'Labels', 'Notes']
 def format_transaction(row):
-    d = row._asdict()
-    d['Notes'] = row.Notes.replace('\n', ' ').replace('\r', '')
-    d['Date'] = row.Date.strftime('%Y-%m-%d')
+    d = {
+        'Date': row.Date.strftime('%Y-%m-%d'),
+        'Notes': row.Notes.replace('\n', ' ').replace('\r', ''),
+        'Labels': row.Tags,
+        'Description': row.Merchant,
+        'Original Description': '',
+        'Amount': row.Amount,
+        'Transaction Type': 'debit' if row.Amount < 0.0 else 'credit',
+        'Category': row.Category,
+        'Account Name': row.Account,
+    }
+
     return d
 
 argparser = argparse.ArgumentParser(prog='DedupScript', description='Dedup script for finance apps')
@@ -98,11 +95,11 @@ for filename in (args.discover or []):
     with open(filename, mode='r', newline='') as infile:
         for row in csv.DictReader(infile):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%m/%d/%Y'), 
-                                      Merchant= None,
+                                      Merchant= 'Discover Bank',
                                       Amount= float(row['Credit']) if row['Transaction Type'] == 'Credit' else -float(row['Debit']),
-                                      Category= None,
+                                      Category= 'Uncategorized',
                                       Account= possible_account,
-                                      Tags= 'Discover Import, CSV Import',
+                                      Tags= 'Discover_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
@@ -116,7 +113,7 @@ for filename in (args.firsttech or []):
                                       Amount= float(row['Amount']),
                                       Category= row['Transaction Category'] or 'Unknown',
                                       Account= possible_account,
-                                      Tags= 'First Tech Import, CSV Import',
+                                      Tags= 'First_Tech_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
@@ -128,14 +125,12 @@ for filename in (args.capitalone or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Transaction Date'], '%m/%d/%y'), 
                                       Merchant= row['Transaction Description'],
                                       Amount= float(row['Transaction Amount']) if row['Transaction Type'] == 'Credit' else -float(row['Transaction Amount']),
-                                      Category= None,
+                                      Category= 'Uncategorized',
                                       Account= possible_account,
-                                      Tags= 'Capital One Import, CSV Import',
+                                      Tags= 'Capital_One_Import, CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
-
-# TODO: How can I combine investment account CSV import and importing holding information?
 
 for filename in (args.fidelity_non_401k or []):
     possible_account = Path(filename).stem
@@ -144,9 +139,9 @@ for filename in (args.fidelity_non_401k or []):
             transaction = Transaction(Date= datetime.datetime.strptime(row['Run Date'], '%m/%d/%y'), 
                                       Merchant= f"{row['Action']}",
                                       Amount= float(row['Amount ($)']),
-                                      Category= None,
+                                      Category= 'Uncategorized',
                                       Account= possible_account,
-                                      Tags= 'Fidelity Non 401k Import, CSV Import',
+                                      Tags= 'Fidelity_Non_401k_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
@@ -160,7 +155,7 @@ for filename in (args.fidelity_401k or []):
                                       Amount= float(row['Amount ($)']),
                                       Category= row['Transaction Type'],
                                       Account= possible_account,
-                                      Tags= 'Fidelity 401k Import, CSV Import',
+                                      Tags= 'Fidelity_401k_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
@@ -186,10 +181,11 @@ for filename in (args.pocketsmith or []):
                                       Amount= float(row['Amount'].replace('$', '').replace(',', '')),
                                       Category= row['Category'],
                                       Account= row['Account'],
-                                      Tags= 'Pocketsmith Import, CSV Import',
-                                      Notes= row['Note'].replace('\n', ' ').replace('\r', ' '),
+                                      Tags= 'Pocketsmith_Import CSV_Import',
+                                      Notes= row['Note'],
                                       Keep=True)
-            transactions.append(transaction)
+            if transaction.Account != 'First Tech Mortgage':
+                transactions.append(transaction)
 
 for filename in (args.cap1creditcard or []):
     possible_account = Path(filename).stem
@@ -200,7 +196,7 @@ for filename in (args.cap1creditcard or []):
                                       Amount= -float(row['Debit']) if row['Debit'] else float(row['Credit']),
                                       Category= row['Category'],
                                       Account= possible_account,
-                                      Tags= 'Capital One Card Import, CSV Import',
+                                      Tags= 'Capital_One_Card_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
@@ -214,15 +210,13 @@ for filename in (args.discoverit or []):
                                       Amount= float(row['Amount']),
                                       Category= row['Category'],
                                       Account= possible_account,
-                                      Tags= 'Discover it Card Import, CSV Import',
+                                      Tags= 'Discover_it_Card_Import CSV_Import',
                                       Notes= repr(row),
                                       Keep=True)
             transactions.append(transaction)
 
 if not transactions:
     argparser.error("Must provide at least one input")
-
-# TODO: Normalize all account names, between monarch, pocketsmith, and the file names
 
 transactions.sort(key = lambda row: row.Amount)
 transactions.sort(key = lambda row: row.Date)
@@ -254,19 +248,17 @@ for transaction_idx, transaction in enumerate(transactions):
 # Now I should have 2 groups of multisets:
 # One holds all duplicates in the general transactions
 # The other maps monarch indexes to the set of things they replace
-notmatch_writer = csv.DictWriter(stdout, fieldnames, quoting=csv.QUOTE_ALL)
+notmatch_writer = csv.DictWriter(stdout, external_fieldnames, quoting=csv.QUOTE_ALL)
 notmatch_writer.writeheader()
 
 for transaction_idx, transaction in enumerate(transactions):
     if args.mondups and transaction_idx in monarch_dups_by_idx:
         notmatch_writer.writerow(format_transaction(transaction))
-    if args.nondups and transaction_idx not in dups_by_idx:
+    if args.nondups and transaction_idx not in dups_by_idx and transaction_idx not in monarch_dups_by_idx:
         notmatch_writer.writerow(format_transaction(transaction))
     if args.dups and transaction_idx in dups_by_idx:
         notmatch_writer.writerow(format_transaction(transaction))
 
-# TODO: Handle unknown merchants, unknown category
-
-# Define stdout writer logic, sanitize to remove excess whitespace in notes and turn datetimes to strings, etc
-
-# TODO: Handle fields as None, esp. Merchant, Description
+# TODO: We have easy emission of non dups and mon dups
+# issue is, a lot of the transactions in dups are valid.
+# we must select one of each set of duplicates
